@@ -1,86 +1,69 @@
-#!/usr/bin/env python
-'''
-JSON XML [Python]
-Ejercicios de clase
----------------------------
-Autor: Inove Coding School
-Version: 1.1
-
-Descripcion:
-Programa creado para poner a prueba los conocimientos
-adquiridos durante la clase
-'''
-
-__author__ = "Inove Coding School"
-__email__ = "alumnos@inove.com.ar"
-__version__ = "1.1"
-
 import json
 import requests
+import numpy as np
+import re
 import matplotlib.pyplot as plt
-import matplotlib.axes
-
 
 def fetch(page_number, location_id):
+    url = "https://jsonmock.hackerrank.com/api/transactions/search?txnType=debit&page={}".format(page_number)
     
-    url = 'https://jsonmock.hackerrank.com/api/transactions/search?txnType=debit&page=' + page_number
-
     response = requests.get(url)
     dataset = response.json()
-    dataset = dataset.get("data") # solo se utilizara los valores de la key "data"
-    
-    dataset = [{"userId": dataset[x].get("userId"), "amount": dataset[x].get("amount")} 
-                for x in range(len(dataset)) if dataset[x].get("location").get("id") == location_id]
+    json_response = dataset["data"]
 
-    return dataset
+    filtrado = [{"userId": x["userId"] , "amount": x["amount"]} for x in json_response if x["location"]["id"] == location_id]
 
+    return filtrado
 
 def transform(dataset):
 
-    # eliminar $ y , (no me funcionó el strim en la descripción del ejercicio (o no lo supe implementar))
-    dataset = [[dataset[x].get('userId'), float(dataset[x].get("amount").replace('$','').replace(',',''))] 
-                for x in range(len(dataset))]
+    data = {}    
+
+    for i in range(len(dataset)):       
+        variable = dataset[i]
+        userid = variable['userId']
+        amount_str = variable['amount']
+        amount = float(re.sub(r'[^\d\-.]', '', amount_str))
+
+        if (userid in dataset ) == False:
+            data[userid] = 0
+        data[userid] =  data[userid] + amount
+
+    data_list = [[key, value] for key,value in data.items()]
+
+    return data_list
+
+
+def report(data):   
+
+    # Bar Plot
+    x = [x[0] for x in data]
+    y = [x[1] for x in data]
+
+    fig, ax = plt.subplots()
+    fig.suptitle('Transactions Filtered by Location')
     
-    # extraer usuarios sin repeticiones 
-    usuarios = set([usuario[0] for usuario in dataset])
-
-    # sumar valores de los usuarios (intenté con comprensión de listas pero no me salió)   
-    data = []
-    for usuario in usuarios:
-        acum = 0
-        for lista in dataset:
-            if lista[0] == usuario:
-                acum += lista[1]
-        data.append([usuario, acum])
+    x_ticks = np.linspace(1,len(x), len(x))
     
-    return data
-
-
-def report(data):
- 
-    # formar listas para gráfico [x] e [y]
-    x = ["Usuario " + str(lista[0]) for lista in data]
-    y = [lista[1] for lista in data]
- 
-    # gráfico de barras (seguramente mejorable el aspector del gráfico)
-    fig = plt.figure()
-    fig.suptitle('Gastos de usuarios', fontsize=16)
-    ax = fig.add_subplot()
-    ax.bar(x, y, label='Usuarios')
-    ax.set_facecolor('lightgray')
-    ax.set_xlabel('Usuarios')
-    ax.set_ylabel('Compras en pesos')
-    ax.grid(ls='dashed')
+    ax.bar(x_ticks, y)
+    ax.grid(c = 'silver', ls = 'dotted')
+    ax.set_facecolor('aliceblue')
+    ax.set_ylabel('Debits $')
+    ax.set_xlabel('UserId')
+    ax.set_xticks(x_ticks)
+    ax.set_xticklabels(x)
+    
     plt.show()
 
+
+if __name__ == "__main__":
+    page_number = 1
+    location_id = 7
+    dataset = fetch(page_number, location_id)
     
-if __name__ == '__main__':
-    print("Bienvenidos a otra clase de Inove con Python")
-     
-    page_number = input('ingrese numero de pagina entre 1 y 16: ') # preguntar numero de pagina
-    location_id = int(input('ingrese location_id): ')) # preguntar la location_id que se desea consultar
     
-    dataset = fetch(page_number, location_id)          
     data = transform(dataset)
     report(data)
-    
+
+
+
